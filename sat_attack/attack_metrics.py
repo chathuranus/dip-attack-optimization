@@ -16,6 +16,7 @@ class AttackMetrics:
     sat_iterations: int = 0
 
     dip_generation_time: float = 0.0
+    final_dip_check_time: float = 0.0
     oracle_time: float = 0.0
     constraint_update_time: float = 0.0
 
@@ -28,6 +29,9 @@ class AttackMetrics:
 
     def record_dip(self, elapsed):
         self.dip_generation_time += elapsed
+
+    def record_final_dip_check(self, elapsed):
+        self.final_dip_check_time = elapsed
 
     def record_oracle(self, elapsed):
         self.oracle_queries += 1
@@ -65,6 +69,7 @@ class AttackMetrics:
             "oracle_queries": self.oracle_queries,
             "sat_iterations": self.sat_iterations,
             "dip_generation_time": self.dip_generation_time,
+            "final_dip_check_time": self.final_dip_check_time,
             "oracle_time": self.oracle_time,
             "constraint_update_time": self.constraint_update_time,
             "total_runtime": self.total_runtime,

@@ -1,3 +1,5 @@
+import time
+
 import z3
 
 import benchmarks
@@ -9,10 +11,11 @@ import oracle_runner
 class SatAttack:
     """The main class for conducting the SAT attack."""
 
-    def __init__(self, locked_filename, unlocked_filename, method="standard_sat"):
+    def __init__(self, locked_filename, unlocked_filename, method="standard_sat", metrics=None):
         self.locked_filename = locked_filename
         self.unlocked_filename = unlocked_filename
         self.method = method
+        self.metrics = metrics
         self.iterations = 0
 
     def run(self):
@@ -33,13 +36,29 @@ class SatAttack:
         runner = oracle_runner.OracleRunner(self.oracle_ckt)
 
         oracle_io_pairs = []
-        while finder.can_find_dip():
+        while True:
+            # DIP generation covers the satisfiability check and the strategy's
+            # DIP selection. The final unsat check yields no DIP, so it is recorded separately.
+            dip_start = time.perf_counter()
+            if not finder.can_find_dip():
+                if self.metrics is not None:
+                    self.metrics.record_final_dip_check(time.perf_counter() - dip_start)
+                break
             dip = finder.find_dip()
+            if self.metrics is not None:
+                self.metrics.record_dip(time.perf_counter() - dip_start)
+
+            oracle_start = time.perf_counter()
             oracle_output = runner.run(dip)
+            if self.metrics is not None:
+                self.metrics.record_oracle(time.perf_counter() - oracle_start)
+
             finder.add_constraint(dip, oracle_output)
 
             oracle_io_pairs.append((dip, oracle_output))
             self.iterations += 1
+            if self.metrics is not None:
+                self.metrics.record_iteration()
 
         key = self._find_key(oracle_io_pairs, key_inputs)
         expected_key = benchmarks.get_expected_key(self.locked_filename)
@@ -48,7 +67,7 @@ class SatAttack:
         print("Found key:    %s" % (self._key_string(key)))
 
         print("\nChecking for circuit equivalence...\n")
-        self._check_key(key)
+        # self._check_key(key)
         if self._check_key(key):
             print("Locked and unlocked circuits match")
             return True
