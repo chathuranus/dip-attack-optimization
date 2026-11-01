@@ -123,12 +123,17 @@ class PartitioningStrategy(DIPStrategy):
     def find_dip(self, context):
         start = perf_counter()
         dips = self._candidate_dips(context)
+        dip_seconds = perf_counter() - start
         if not dips:
             return None
+
+        start = perf_counter()
         keys = self._candidate_keys(context)
+        key_seconds = perf_counter() - start
         if not keys:
             raise RuntimeError("No feasible keys remain after oracle observations")
 
+        start = perf_counter()
         best_dip = None
         best_score = None
         for dip in dips:
@@ -141,12 +146,18 @@ class PartitioningStrategy(DIPStrategy):
                 best_details = score
 
         context.last_selection = {
-            "method": "partitioning",
             "candidate_dips": len(dips),
             "candidate_keys": len(keys),
-            "selection_seconds": perf_counter() - start,
-            **best_details,
+            "selected_dip_entropy": best_details["entropy"],
+            "num_classes": best_details["num_classes"],
+            "largest_class": best_details["largest_class"],
+            "worst_case_eliminated": best_details["worst_case_eliminated"],
+            "key_sampling_seconds": key_seconds,
+            "candidate_dip_generation_seconds": dip_seconds,
+            "partition_scoring_seconds": perf_counter() - start,
         }
+        if context.metrics is not None:
+            context.metrics.record_partition(context.last_selection)
         return best_dip
 
 
