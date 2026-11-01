@@ -30,7 +30,7 @@ if __name__ == "__main__":
         method=args.method
     )
 
-    attack = sat_attack.SatAttack(args.locked_ckt, args.oracle, method=attack_method)
+    attack = sat_attack.SatAttack(args.locked_ckt, args.oracle, method=attack_method, metrics=metrics)
 
     start = time.time()
     verified_success = attack.run()
