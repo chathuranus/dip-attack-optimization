@@ -80,6 +80,31 @@ parser.add_argument(
 
 Pass `args.method` into the existing attack initialization, then into the DIP finder. Keep oracle querying, accumulated constraints, termination conditions, and final key validation identical across all strategies. Do not replace the repository's current constructor signatures with illustrative examples without inspecting the code.
 
+## Sampled-key DIP selection integration
+
+Replace `dip_finder.py` and `dip_strategies.py` in your existing SAT attack package, and add `partitioning.py`. Keep your existing `circuit.py`, `sat_model.py`, `sat_attack.py`, and other modules. The included copies of `circuit.py`, `sat_model.py`, and `sat_attack.py` are for reference only and were not modified.
+
+### Run
+
+Use your existing `run.py` command-line interface with `--method partitioning` (assuming the method flag has already been integrated). `standard_sat` remains unchanged and `maxsat` is still a placeholder.
+
+Default candidate budgets are 32 feasible keys and 8 candidate DIPs. The `DipFinder` constructor supports `partition_key_samples` and `partition_dip_candidates` to adjust them.
+
+### Important details
+
+* `key_solver` contains only oracle-observation constraints, not the miter's output-difference requirement.
+* Temporary blocking clauses are scoped with Z3 push/pop, so they do not affect later attack iterations.
+* `context.last_selection` holds the most recent selection statistics; you can copy these into your metrics collector after each successful DIP.
+* The sampled keys are distinct but **not uniformly sampled**. Entropy estimates may be biased.
+* `MaxSATStrategy` is not implemented.
+
+### Validation
+
+The Python modules compile, and the two pure-scoring unit tests pass. This environment does not have the `z3-solver` package, so the actual Z3 integration has **not** been executed end-to-end. Run on your Ubuntu setup with a small known benchmark before broader experiments.
+
+```
+python3 -m unittest test_partitioning.py -v
+```
 ## Recording results
 
 For each attack run, record:

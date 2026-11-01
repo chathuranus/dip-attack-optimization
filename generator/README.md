@@ -8,8 +8,6 @@ Generate reproducible, XOR/XNOR-locked **combinational structural Verilog** benc
 benchmark_generator/
 ├── generate_locked_benchmarks.py   # Core locking generator
 ├── sll_algorithm3.py               # Experimental SLL-style placement
-├── test_sll.py                      # Basic generator/SLL tests
-├── test_shortcut.py                 # Basic shortcut tests
 ├── original_benchmarks/            # Input structural Verilog files
 │   ├── c432.v
 │   ├── c880.v
@@ -89,10 +87,10 @@ generated_benchmarks/
 
 ## 6. Validation before SAT experiments
 
-1. Run the bundled tests:
+1. Run the bundled tests (in `tests/` at the repo root), from the repo root:
 
    ```bash
-   python3 -m unittest test_sll.py test_shortcut.py -v
+   python3 -m unittest -v
    ```
 
 2. Start with one small random-locking instance (`c432`, 16 or 32 key bits).

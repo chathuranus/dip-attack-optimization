@@ -20,6 +20,9 @@ class AttackMetrics:
     hamming_distances: list[int] = field(default_factory=list)
     optimal_iterations: int = 0
 
+    # One entry per DIP selected by the partitioning strategy.
+    partition_selections: list[dict] = field(default_factory=list)
+
     dip_generation_time: float = 0.0
     final_dip_check_time: float = 0.0
     oracle_time: float = 0.0
@@ -53,6 +56,9 @@ class AttackMetrics:
 
         if optimal:
             self.optimal_iterations += 1
+
+    def record_partition(self, selection):
+        self.partition_selections.append(dict(selection))
 
     @property
     def mean_hamming_distance(self):

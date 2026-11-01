@@ -66,6 +66,7 @@ def save_attack_result(
         ),
         "hamming_distances": metrics.hamming_distances,
         "optimal_iterations": metrics.optimal_iterations,
+        "partition_selections": metrics.partition_selections,
         "functional_equivalence": functional_equivalence,
         "solver_seed": solver_seed,
         "error": str(error) if error else None,

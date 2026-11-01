@@ -4,8 +4,7 @@ import unittest
 
 from sll_algorithm3 import (
     postdominators,
-    select_sll,
-    sensitization_exists_exhaustive
+    select_sll
 )
 
 
