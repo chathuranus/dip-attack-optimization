@@ -68,4 +68,6 @@ if __name__ == "__main__":
     print(f"Benchmark: {locked_file.stem}")
     print(f"Method: {args.method}")
     print(f"Runtime: {metrics.total_runtime:.4f} seconds")
+    print(f"IO-aware oracle time: {metrics.io_aware_oracle_time:.4f} seconds")
+    print(f"IO-aware runtime: {metrics.io_aware_total_runtime:.4f} seconds")
 

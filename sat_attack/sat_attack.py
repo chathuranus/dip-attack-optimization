@@ -33,6 +33,10 @@ class SatAttack:
         print("\n# Primary Inputs: %i" % (len(primary_inputs)))
         print("# Key Inputs: %i" % (len(key_inputs)))
 
+        if self.metrics is not None:
+            self.metrics.num_primary_inputs = len(primary_inputs)
+            self.metrics.num_outputs = len(self.output_names)
+
         finder = dip_finder.DipFinder(self.nodes, self.output_names, method=self.method,
                                       metrics=self.metrics, strategy_options=self.strategy_options)
         runner = oracle_runner.OracleRunner(self.oracle_ckt)
