@@ -59,10 +59,13 @@ def save_attack_result(
         "sat_iterations": metrics.sat_iterations,
         "total_runtime_seconds": metrics.total_runtime,
         "dip_generation_seconds": metrics.dip_generation_time,
+        "final_dip_check_seconds": metrics.final_dip_check_time,
         "oracle_seconds": metrics.oracle_time,
         "constraint_update_seconds": (
             metrics.constraint_update_time
         ),
+        "hamming_distances": metrics.hamming_distances,
+        "optimal_iterations": metrics.optimal_iterations,
         "functional_equivalence": functional_equivalence,
         "solver_seed": solver_seed,
         "error": str(error) if error else None,
