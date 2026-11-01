@@ -4,6 +4,8 @@ from time import perf_counter
 
 from z3 import BoolVal, is_true, is_false, AtLeast, sat, substitute, simplify, unsat, Bool, Or 
 
+from z3 import AtLeast, is_true, sat, unsat
+
 import sat_model
 from partitioning import evaluate_partition
 
@@ -15,7 +17,6 @@ NO_TIMEOUT = 4294967295
 def hamming_distance(model, output_xors):
     """Returns the number of outputs on which the two locked circuit copies differ in a model"""
     return sum(is_true(model.eval(x, model_completion=True)) for x in output_xors)
-
 
 class DIPStrategy(ABC):
     @abstractmethod
@@ -240,5 +241,8 @@ def create_strategy(method, **options):
         ),
     }
     if method not in strategies:
-        raise ValueError(f"Unsupported attack method: {method}")
-    return strategies[method]()
+        raise ValueError(
+            f"Unsupported attack method: {method}"
+        )
+
+    return strategies[method](**options)
