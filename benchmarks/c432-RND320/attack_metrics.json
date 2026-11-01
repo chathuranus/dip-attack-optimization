@@ -16,9 +16,38 @@
         "functional_equivalence": true,
         "solver_seed": null,
         "error": null
+      },
+      {
+        "run_id": "7df8ddce-f733-485b-ab25-2724a9936dd5",
+        "timestamp_utc": "2026-11-01T10:27:10.099403+00:00",
+        "status": "success",
+        "oracle_queries": 0,
+        "sat_iterations": 0,
+        "total_runtime_seconds": 0.8296759621007368,
+        "dip_generation_seconds": 0.0,
+        "oracle_seconds": 0.0,
+        "constraint_update_seconds": 0.0,
+        "functional_equivalence": true,
+        "solver_seed": null,
+        "error": null
       }
     ],
-    "partitioning": [],
+    "partitioning": [
+      {
+        "run_id": "f4d7fba5-9ffe-4974-b0e1-c098289bfc14",
+        "timestamp_utc": "2026-11-01T10:27:00.748967+00:00",
+        "status": "success",
+        "oracle_queries": 0,
+        "sat_iterations": 0,
+        "total_runtime_seconds": 34.55921926302835,
+        "dip_generation_seconds": 0.0,
+        "oracle_seconds": 0.0,
+        "constraint_update_seconds": 0.0,
+        "functional_equivalence": true,
+        "solver_seed": null,
+        "error": null
+      }
+    ],
     "maxsat": []
   }
 }
