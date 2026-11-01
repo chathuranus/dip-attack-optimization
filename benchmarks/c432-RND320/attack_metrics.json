@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "benchmark": "c432-RND320",
+  "results": {
+    "standard_sat": [
+      {
+        "run_id": "1468ef92-e19f-4392-a9b4-801390c756c1",
+        "timestamp_utc": "2026-11-01T04:29:33.029762+00:00",
+        "status": "success",
+        "oracle_queries": 0,
+        "sat_iterations": 0,
+        "total_runtime_seconds": 0.6803568220930174,
+        "dip_generation_seconds": 0.0,
+        "oracle_seconds": 0.0,
+        "constraint_update_seconds": 0.0,
+        "functional_equivalence": true,
+        "solver_seed": null,
+        "error": null
+      }
+    ],
+    "partitioning": [],
+    "maxsat": []
+  }
+}

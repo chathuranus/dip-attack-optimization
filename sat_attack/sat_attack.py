@@ -9,9 +9,10 @@ import oracle_runner
 class SatAttack:
     """The main class for conducting the SAT attack."""
 
-    def __init__(self, locked_filename, unlocked_filename):
+    def __init__(self, locked_filename, unlocked_filename, method="standard_sat"):
         self.locked_filename = locked_filename
         self.unlocked_filename = unlocked_filename
+        self.method = method
         self.iterations = 0
 
     def run(self):
@@ -28,7 +29,7 @@ class SatAttack:
         print("\n# Primary Inputs: %i" % (len(primary_inputs)))
         print("# Key Inputs: %i" % (len(key_inputs)))
 
-        finder = dip_finder.DipFinder(self.nodes, self.output_names)
+        finder = dip_finder.DipFinder(self.nodes, self.output_names, method=self.method)
         runner = oracle_runner.OracleRunner(self.oracle_ckt)
 
         oracle_io_pairs = []
@@ -50,8 +51,10 @@ class SatAttack:
         self._check_key(key)
         if self._check_key(key):
             print("Locked and unlocked circuits match")
+            return True
         else:
             print("Key found does not match oracle")
+            return False
 
     def _find_key(self, oracle_io_pairs, key_names):
         """

@@ -1,10 +1,11 @@
 from z3 import *
 
 from circuit import Circuit
-import sat_model
+
+from dip_strategies import create_strategy
 
 class DipFinder:
-    def __init__(self, nodes, output_names):
+    def __init__(self, nodes, output_names, method="standard_sat"):
         self.nodes = nodes
         self.output_names = output_names
 
@@ -15,15 +16,16 @@ class DipFinder:
         self.solver = Solver()
         self.solver.add(self.miter_ckt.outputs()["diff"] == True)
 
+        self.method = method
+        self.strategy = create_strategy(method)
+
     def can_find_dip(self):
         """Returns if a dip can be found given the current constraints"""
         return self.solver.check() == sat
 
     def find_dip(self):
         """Returns a dip for the circuit given the current constraints"""
-        model = self.solver.model()
-        primary_inputs = self.miter_ckt.primary_inputs()
-        return sat_model.extract_from_model(model, primary_inputs, completion=True)
+        return self.strategy.find_dip(self)
 
     def add_constraint(self, dip, outputs):
         """
