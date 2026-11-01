@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from sat_attack import sat_model
+import sat_model
 
 
 class DIPStrategy(ABC):

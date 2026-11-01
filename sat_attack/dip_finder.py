@@ -1,7 +1,6 @@
 from z3 import *
 
 from circuit import Circuit
-import sat_model
 
 from dip_strategies import create_strategy
 
