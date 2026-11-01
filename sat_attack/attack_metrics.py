@@ -13,7 +13,12 @@ class AttackMetrics:
     method: str = "standard_sat"
 
     oracle_queries: int = 0
+    # Every solver call made during DIP generation, including a strategy's
+    # extra checks. The final unsat check is not counted.
     sat_iterations: int = 0
+
+    hamming_distances: list[int] = field(default_factory=list)
+    optimal_iterations: int = 0
 
     dip_generation_time: float = 0.0
     final_dip_check_time: float = 0.0
@@ -43,6 +48,19 @@ class AttackMetrics:
     def record_iteration(self):
         self.sat_iterations += 1
 
+    def record_hamming(self, distance, optimal=False):
+        self.hamming_distances.append(distance)
+
+        if optimal:
+            self.optimal_iterations += 1
+
+    @property
+    def mean_hamming_distance(self):
+        if not self.hamming_distances:
+            return None
+
+        return sum(self.hamming_distances) / len(self.hamming_distances)
+
     def finish(self, success):
         self.attack_end = time.perf_counter()
         self.success = success
@@ -68,6 +86,8 @@ class AttackMetrics:
             "method": self.method,
             "oracle_queries": self.oracle_queries,
             "sat_iterations": self.sat_iterations,
+            "mean_hamming_distance": self.mean_hamming_distance,
+            "optimal_iterations": self.optimal_iterations,
             "dip_generation_time": self.dip_generation_time,
             "final_dip_check_time": self.final_dip_check_time,
             "oracle_time": self.oracle_time,

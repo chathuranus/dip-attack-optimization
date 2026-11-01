@@ -64,6 +64,8 @@ def save_attack_result(
         "constraint_update_seconds": (
             metrics.constraint_update_time
         ),
+        "hamming_distances": metrics.hamming_distances,
+        "optimal_iterations": metrics.optimal_iterations,
         "functional_equivalence": functional_equivalence,
         "solver_seed": solver_seed,
         "error": str(error) if error else None,

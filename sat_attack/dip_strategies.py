@@ -2,9 +2,19 @@
 from abc import ABC, abstractmethod
 from time import perf_counter
 
-import z3
+from z3 import BoolVal, is_true, is_false, AtLeast, sat, substitute, simplify, unsat, Bool, Or 
+
 import sat_model
 from partitioning import evaluate_partition
+
+
+# z3's value for "no timeout"; pop() does not undo a timeout, so it must be restored.
+NO_TIMEOUT = 4294967295
+
+
+def hamming_distance(model, output_xors):
+    """Returns the number of outputs on which the two locked circuit copies differ in a model"""
+    return sum(is_true(model.eval(x, model_completion=True)) for x in output_xors)
 
 
 class DIPStrategy(ABC):
@@ -17,13 +27,15 @@ class StandardSATStrategy(DIPStrategy):
     def find_dip(self, context):
         # The attack loop already called can_find_dip(), so the model exists.
         model = context.solver.model()
-        return sat_model.extract_from_model(
-            model, context.miter_ckt.primary_inputs(), completion=True
-        )
+        if context.metrics is not None:
+            # Baseline for comparison; costs no extra solver calls.
+            context.metrics.record_hamming(hamming_distance(model, context.output_xors))
 
-
+        primary_inputs = context.miter_ckt.primary_inputs()
+        return sat_model.extract_from_model(model, primary_inputs, completion=True)
+    
 def _bool_value(model, name):
-    return z3.is_true(model.eval(z3.Bool(name), model_completion=True))
+    return is_true(model.eval(Bool(name), model_completion=True))
 
 
 class PartitioningStrategy(DIPStrategy):
@@ -42,9 +54,9 @@ class PartitioningStrategy(DIPStrategy):
         try:
             for _ in range(self.dip_candidates):
                 status = solver.check()
-                if status == z3.unsat:
+                if status == unsat:
                     break
-                if status != z3.sat:
+                if status != sat:
                     raise RuntimeError(f"Miter solver returned {status}")
                 model = solver.model()
                 dip = {name: _bool_value(model, name) for name in names}
@@ -52,8 +64,8 @@ class PartitioningStrategy(DIPStrategy):
                 # Block this INPUT pattern, not a particular key pair.
                 if not names:
                     break
-                solver.add(z3.Or(*[
-                    z3.Bool(name) != z3.BoolVal(dip[name]) for name in names
+                solver.add(Or(*[
+                    Bool(name) != BoolVal(dip[name]) for name in names
                 ]))
         finally:
             solver.pop()
@@ -70,16 +82,16 @@ class PartitioningStrategy(DIPStrategy):
         try:
             for _ in range(self.key_samples):
                 status = solver.check()
-                if status == z3.unsat:
+                if status == unsat:
                     break
-                if status != z3.sat:
+                if status != sat:
                     raise RuntimeError(f"Key sampler returned {status}")
                 model = solver.model()
                 key = {name: _bool_value(model, name) for name in names}
                 keys.append(key)
                 # Exclude this exact key in the TEMPORARY solver scope.
-                solver.add(z3.Or(*[
-                    z3.Bool(name) != z3.BoolVal(key[name]) for name in names
+                solver.add(Or(*[
+                    Bool(name) != BoolVal(key[name]) for name in names
                 ]))
         finally:
             solver.pop()
@@ -90,16 +102,16 @@ class PartitioningStrategy(DIPStrategy):
         """Evaluate the known locked netlist without consulting the oracle."""
         assignments = {**dip, **key}
         substitutions = [
-            (z3.Bool(name), z3.BoolVal(value))
+            (Bool(name), BoolVal(value))
             for name, value in assignments.items()
         ]
         values = []
         for name in context.output_names:
             expr = context.locked_ckt0.outputs()[name]
-            grounded = z3.simplify(z3.substitute(expr, *substitutions))
-            if z3.is_true(grounded):
+            grounded = simplify(substitute(expr, *substitutions))
+            if is_true(grounded):
                 values.append(True)
-            elif z3.is_false(grounded):
+            elif is_false(grounded):
                 values.append(False)
             else:
                 raise ValueError(
@@ -139,18 +151,82 @@ class PartitioningStrategy(DIPStrategy):
 
 
 class MaxSATStrategy(DIPStrategy):
+    """
+    Selects the DIP that maximizes the output Hamming distance between the
+    two locked circuit copies. Starting from the model found by can_find_dip,
+    it repeatedly asks the solver for a model where at least one more output
+    differs, until that is unsat (optimum proven), times out, or hits the cap.
+    """
+
+    def __init__(self, timeout_ms=None, max_extra_checks=None):
+        """
+        timeout_ms: optional time limit for each extra solver check
+        max_extra_checks: optional cap on extra solver checks per DIP
+        """
+        self.timeout_ms = timeout_ms
+        self.max_extra_checks = max_extra_checks
+
     def find_dip(self, context):
-        raise NotImplementedError("MaxSAT DIP selection is not implemented yet")
+        """Returns the dip with the maximum output Hamming distance given the current constraints"""
+        solver = context.solver
+        metrics = context.metrics
+        output_xors = context.output_xors
+
+        best = solver.model()
+        best_distance = hamming_distance(best, output_xors)
+        optimal = best_distance == len(output_xors)
+        extra_checks = 0
+
+        if self.timeout_ms is not None:
+            solver.set("timeout", self.timeout_ms)
+
+        try:
+            while not optimal:
+                if self.max_extra_checks is not None and extra_checks >= self.max_extra_checks:
+                    break
+
+                # The cardinality constraint is temporary; the attack's
+                # permanent constraints must stay the same as standard_sat's.
+                solver.push()
+                solver.add(AtLeast(*output_xors, best_distance + 1))
+                result = solver.check()
+                if result == sat:
+                    best = solver.model()
+                solver.pop()
+
+                extra_checks += 1
+                if metrics is not None:
+                    metrics.record_iteration()
+
+                if result == sat:
+                    best_distance = hamming_distance(best, output_xors)
+                    optimal = best_distance == len(output_xors)
+                elif result == unsat:
+                    optimal = True
+                else:
+                    break  # unknown (timeout): keep the best model found so far
+        finally:
+            if self.timeout_ms is not None:
+                solver.set("timeout", NO_TIMEOUT)
+
+        if metrics is not None:
+            metrics.record_hamming(best_distance, optimal)
+
+        primary_inputs = context.miter_ckt.primary_inputs()
+        return sat_model.extract_from_model(best, primary_inputs, completion=True)
 
 
-def create_strategy(method, partition_key_samples=32, partition_dip_candidates=8):
+def create_strategy(method, **options):
     strategies = {
         "standard_sat": lambda: StandardSATStrategy(),
         "partitioning": lambda: PartitioningStrategy(
-            key_samples=partition_key_samples,
-            dip_candidates=partition_dip_candidates,
+            key_samples=options.get("partition_key_samples", 32),
+            dip_candidates=options.get("partition_dip_candidates", 8),
         ),
-        "maxsat": lambda: MaxSATStrategy(),
+        "maxsat": lambda: MaxSATStrategy(
+            timeout_ms=options.get("timeout_ms"),
+            max_extra_checks=options.get("max_extra_checks"),
+        ),
     }
     if method not in strategies:
         raise ValueError(f"Unsupported attack method: {method}")
