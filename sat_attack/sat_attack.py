@@ -5,7 +5,6 @@ import z3
 import benchmarks
 import circuit
 import dip_finder
-import sat_model
 import oracle_runner
 
 class SatAttack:
@@ -37,7 +36,6 @@ class SatAttack:
                                       metrics=self.metrics, strategy_options=self.strategy_options)
         runner = oracle_runner.OracleRunner(self.oracle_ckt)
 
-        oracle_io_pairs = []
         while True:
             # DIP generation covers the satisfiability check and the strategy's
             # DIP selection. The final unsat check yields no DIP, so it is recorded separately.
@@ -58,11 +56,9 @@ class SatAttack:
                 self.metrics.record_oracle(time.perf_counter() - oracle_start)
 
             finder.add_constraint(dip, oracle_output)
-
-            oracle_io_pairs.append((dip, oracle_output))
             self.iterations += 1
 
-        key = self._find_key(oracle_io_pairs, key_inputs)
+        key = finder.find_key(key_inputs)
         expected_key = benchmarks.get_expected_key(self.locked_filename)
 
         print("\nExpected key: %s" % (self._key_string(expected_key)))
@@ -76,32 +72,6 @@ class SatAttack:
         else:
             print("Key found does not match oracle")
             return False
-
-    def _find_key(self, oracle_io_pairs, key_names):
-        """
-        Find a key that satisfies all DIPs found during the SAT attack.
-        This key will be in the set of correct keys.
-
-        oracle_io_pairs: array of dip/output pairs in the form of (dip, output)
-
-        returns: key that satisfies all dip constraints
-        """
-
-        s = z3.Solver()
-
-        for io_pair in oracle_io_pairs:
-            dip = io_pair[0]
-            output = io_pair[1]
-
-            constraint_ckt = circuit.Circuit.specify_inputs(dip, self.nodes, self.output_names)
-            output_constraints = [constraint_ckt.outputs()[name] == output[name] for name in output.keys()]
-
-            s.add(*output_constraints)
-
-        s.check()
-        model = s.model()
-        key = sat_model.extract_from_model(model, key_names, completion=True)
-        return key
 
     def _check_key(self, key):
         """

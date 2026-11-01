@@ -144,6 +144,53 @@ For generated SLL-style instances, distinguish the strict published placement al
 4. Implement and test each selector independently on small circuits.
 5. Run paired experiments on identical locked/oracle pairs and compare runtime and oracle-query counts.
 
+## Results
+
+Comparison of the three DIP-selection methods on the 32-bit random XOR/XNOR-locked (`RND320`) benchmarks, one run per method, with default strategy options (`partitioning`: 32 key samples, 8 candidate DIPs; `maxsat`: no timeout or check cap). Every run recovered a key whose circuit is functionally equivalent to the oracle.
+
+| Benchmark | Method | Oracle queries | SAT iterations | Mean Hamming distance | DIP generation (s) | Total runtime (s) | Equivalent |
+|---|---|---|---|---|---|---|---|
+| c432 | `standard_sat` | 21 | 21 | 3.67 | 0.08 | 0.65 | yes |
+| c432 | `partitioning` | 12 | 12 | — | 0.32 | 0.69 | yes |
+| c432 | `maxsat` | **11** | 40 | 5.73 | 0.15 | **0.51** | yes |
+| c499 | `standard_sat` | 12 | 12 | 3.00 | 0.07 | **0.49** | yes |
+| c499 | `partitioning` | **9** | 9 | — | 0.31 | 0.66 | yes |
+| c499 | `maxsat` | 10 | 44 | 7.80 | 0.27 | 0.65 | yes |
+| c880 | `standard_sat` | 6 | 6 | 2.67 | 0.04 | 0.56 | yes |
+| c880 | `partitioning` | 7 | 7 | — | 0.23 | 0.80 | yes |
+| c880 | `maxsat` | **4** | 22 | 10.00 | 0.08 | **0.52** | yes |
+| c1355 | `standard_sat` | 13 | 13 | 1.85 | 0.15 | **1.42** | yes |
+| c1355 | `partitioning` | **11** | 11 | — | 0.46 | 1.58 | yes |
+| c1355 | `maxsat` | 18 | 106 | 6.94 | 2.05 | 3.64 | yes |
+| c1908 | `standard_sat` | **8** | 8 | 7.25 | 0.06 | **1.37** | yes |
+| c1908 | `partitioning` | 11 | 11 | — | 0.40 | 1.95 | yes |
+| c1908 | `maxsat` | **8** | 26 | 19.00 | 0.28 | 1.57 | yes |
+| c2670 | `standard_sat` | 23 | 23 | 2.30 | 0.24 | 3.92 | yes |
+| c2670 | `partitioning` | 21 | 21 | — | 0.97 | 4.37 | yes |
+| c2670 | `maxsat` | **11** | 40 | 6.18 | 0.27 | **2.49** | yes |
+| c3540 | `standard_sat` | 14 | 14 | 3.29 | 0.13 | 3.74 | yes |
+| c3540 | `partitioning` | 13 | 13 | — | 0.53 | 3.98 | yes |
+| c3540 | `maxsat` | **9** | 57 | 7.78 | 0.72 | **3.49** | yes |
+| c5315 | `standard_sat` | 12 | 12 | 2.83 | 0.24 | 5.56 | yes |
+| c5315 | `partitioning` | 11 | 11 | — | 0.66 | 5.70 | yes |
+| c5315 | `maxsat` | **6** | 77 | 20.50 | 1.28 | **5.00** | yes |
+
+Bold marks the best oracle-query count and total runtime per benchmark.
+
+How to read the columns:
+
+- **SAT iterations** counts miter solver checks. For `maxsat` it includes the extra checks spent maximizing the Hamming distance. For `partitioning` it does *not* include the candidate-DIP and key-sampling checks (about 40 per query with the defaults), so it understates that method's solver work.
+- **Mean Hamming distance** is the average number of outputs on which the two locked-circuit copies differ for the selected DIP. `partitioning` does not record it; its per-DIP selection metrics are in `partition_selections` in `attack_metrics.json`.
+- **DIP generation** is time spent choosing DIPs. Most of the rest of the total runtime is shared work, mainly rebuilding the circuit for each oracle observation in `add_constraint`.
+
+Observations:
+
+- `maxsat` used the fewest oracle queries on 6 of 8 benchmarks and was fastest on 5. Its selected DIPs differ on 2–7× more outputs than the baseline's, and every one was proven maximal.
+- c1355 is the exception: `maxsat` needed more queries than the baseline (18 vs 13) and 106 solver checks, making it 2.5× slower.
+- `partitioning` was never fastest, and had the fewest queries only on c499 and c1355, by 1–2 queries. With 32 sampled keys its partition estimate is coarse.
+- These are single runs at one key size. Query counts depend on which models Z3 returns and can vary noticeably between runs, so repeat each method with several solver seeds, and at 64 and 128 bits, before drawing firm conclusions.
+- c7552 is not included: the parser leaves its output `N387` without a driving gate, so no method can attack it yet.
+
 ## References
 
 - [lnestor/sat_attack](https://github.com/lnestor/sat_attack)

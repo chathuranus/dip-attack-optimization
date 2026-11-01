@@ -1,5 +1,6 @@
 from z3 import Solver, Xor, sat
 
+import sat_model
 from circuit import Circuit
 from dip_strategies import create_strategy
 
@@ -49,6 +50,20 @@ class DipFinder:
     def find_dip(self):
         """Return a DIP selected by the configured strategy."""
         return self.strategy.find_dip(self)
+
+    def find_key(self, key_names):
+        """
+        Returns a key satisfying every DIP/output pair added so far; it is in
+        the correct key class once no DIP remains. key_solver already holds
+        those constraints, on locked_ckt0's copy of the key inputs.
+
+        key_names: the key input names as they appear in the netlist
+        """
+        if self.key_solver.check() != sat:
+            raise RuntimeError("No key satisfies the oracle observations")
+        model = self.key_solver.model()
+        key = sat_model.extract_from_model(model, [name + "__ckt0" for name in key_names], completion=True)
+        return {name.removesuffix("__ckt0"): value for name, value in key.items()}
 
     def add_constraint(self, dip, outputs):
         """Add the observed DIP/output pair to both attack and key samplers."""
