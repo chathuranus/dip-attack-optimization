@@ -58,9 +58,11 @@ def save_attack_result(
         "oracle_queries": metrics.oracle_queries,
         "sat_iterations": metrics.sat_iterations,
         "total_runtime_seconds": metrics.total_runtime,
+        "io_aware_total_runtime_seconds": metrics.io_aware_total_runtime,
         "dip_generation_seconds": metrics.dip_generation_time,
         "final_dip_check_seconds": metrics.final_dip_check_time,
         "oracle_seconds": metrics.oracle_time,
+        "io_aware_oracle_seconds": metrics.io_aware_oracle_time,
         "constraint_update_seconds": (
             metrics.constraint_update_time
         ),

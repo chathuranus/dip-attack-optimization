@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from io_model import query_latency
+
 
 @dataclass
 class AttackMetrics:
@@ -27,6 +29,10 @@ class AttackMetrics:
     final_dip_check_time: float = 0.0
     oracle_time: float = 0.0
     constraint_update_time: float = 0.0
+
+    # Circuit I/O sizes, used by the off-chip communication model.
+    num_primary_inputs: int = 0
+    num_outputs: int = 0
 
     attack_start: float = field(
         default_factory=time.perf_counter
@@ -80,6 +86,18 @@ class AttackMetrics:
 
         return end - self.attack_start
 
+    @property
+    def io_aware_oracle_time(self):
+        """Modelled USB/JTAG communication time for all oracle queries"""
+        return self.oracle_queries * query_latency(
+            self.num_primary_inputs,
+            self.num_outputs
+        )
+
+    @property
+    def io_aware_total_runtime(self):
+        return self.total_runtime + self.io_aware_oracle_time
+
     def save_csv(self, filename):
         filename = Path(filename)
         filename.parent.mkdir(
@@ -99,6 +117,8 @@ class AttackMetrics:
             "oracle_time": self.oracle_time,
             "constraint_update_time": self.constraint_update_time,
             "total_runtime": self.total_runtime,
+            "io_aware_oracle_time": self.io_aware_oracle_time,
+            "io_aware_total_runtime": self.io_aware_total_runtime,
             "success": self.success,
         }
 
