@@ -2,16 +2,35 @@
 from abc import ABC, abstractmethod
 from time import perf_counter
 
-from z3 import BoolVal, is_true, is_false, AtLeast, sat, substitute, simplify, unsat, Bool, Or 
+from z3 import is_true, AtLeast, sat, unsat, Bool, BoolRef, Not
+from z3.z3core import Z3_get_bool_value, Z3_mk_or
+from z3.z3types import Ast
+from z3.z3consts import Z3_L_TRUE
 
 from z3 import AtLeast, is_true, sat, unsat
 
 import sat_model
+from bitwise_eval import evaluate_packed, gate_order
 from partitioning import evaluate_partition
 
 
 # z3's value for "no timeout"; pop() does not undo a timeout, so it must be restored.
 NO_TIMEOUT = 4294967295
+
+# Key suffix DipFinder gives locked_ckt0, whose key names the key sampler returns.
+CKT0_KEY_SUFFIX = "__ckt0"
+
+
+def _fast_or(literals):
+    """Or() without the Python wrapper's per-argument checks (~50x faster)."""
+    ctx = literals[0].ctx
+    args = (Ast * len(literals))(*[lit.as_ast() for lit in literals])
+    return BoolRef(Z3_mk_or(ctx.ref(), len(literals), args), ctx)
+
+
+def _fast_is_true(model, var):
+    """is_true(model.eval(var, model_completion=True)) with one C call for the test."""
+    return Z3_get_bool_value(var.ctx.ref(), model.eval(var, model_completion=True).as_ast()) == Z3_L_TRUE
 
 
 def hamming_distance(model, output_xors):
@@ -35,91 +54,87 @@ class StandardSATStrategy(DIPStrategy):
         primary_inputs = context.miter_ckt.primary_inputs()
         return sat_model.extract_from_model(model, primary_inputs, completion=True)
     
-def _bool_value(model, name):
-    return is_true(model.eval(Bool(name), model_completion=True))
-
-
 class PartitioningStrategy(DIPStrategy):
     def __init__(self, key_samples=32, dip_candidates=8):
         if key_samples < 2 or dip_candidates < 1:
             raise ValueError("key_samples >= 2 and dip_candidates >= 1 required")
         self.key_samples = key_samples
         self.dip_candidates = dip_candidates
+        self._gate_order = None
+        # name -> (Bool(name), Not(Bool(name))), built once; making z3 terms
+        # per model dominated sampling time.
+        self._literals = {}
+
+    def _literal_pairs(self, names):
+        missing = [name for name in names if name not in self._literals]
+        for name in missing:
+            var = Bool(name)
+            self._literals[name] = (var, Not(var))
+        return [(name, *self._literals[name]) for name in names]
+
+    def _enumerate(self, solver, names, limit, model=None):
+        """
+        Returns up to limit distinct assignments to names that satisfy solver,
+        blocking each one in a temporary scope. model: an already-checked
+        model to use as the first assignment instead of a fresh check.
+        """
+        literals = self._literal_pairs(names)
+        found = []
+        solver.push()
+        try:
+            while len(found) < limit:
+                if model is None:
+                    status = solver.check()
+                    if status == unsat:
+                        break
+                    if status != sat:
+                        raise RuntimeError(f"Solver returned {status}")
+                    model = solver.model()
+                values = {name: _fast_is_true(model, var) for name, var, _ in literals}
+                found.append(values)
+                model = None
+                if not names:
+                    break
+                solver.add(_fast_or([neg if values[name] else var for name, var, neg in literals]))
+        finally:
+            solver.pop()
+        return found
 
     def _candidate_dips(self, context):
         """Temporarily enumerate distinct miter DIPs without changing it."""
-        names = context.miter_ckt.primary_inputs()
-        solver = context.solver
-        dips = []
-        solver.push()
-        try:
-            for _ in range(self.dip_candidates):
-                status = solver.check()
-                if status == unsat:
-                    break
-                if status != sat:
-                    raise RuntimeError(f"Miter solver returned {status}")
-                model = solver.model()
-                dip = {name: _bool_value(model, name) for name in names}
-                dips.append(dip)
-                # Block this INPUT pattern, not a particular key pair.
-                if not names:
-                    break
-                solver.add(Or(*[
-                    Bool(name) != BoolVal(dip[name]) for name in names
-                ]))
-        finally:
-            solver.pop()
-        return dips
+        # can_find_dip() just checked the miter, so its model is the first DIP.
+        # Blocking an INPUT pattern, not a particular key pair.
+        return self._enumerate(context.solver, context.miter_ckt.primary_inputs(),
+                               self.dip_candidates, model=context.solver.model())
 
     def _candidate_keys(self, context):
         """Enumerate keys satisfying all previous oracle observations."""
         names = context.locked_ckt0.key_inputs()
         if not names:
             raise ValueError("No key inputs found in the locked circuit")
-        solver = context.key_solver
-        keys = []
-        solver.push()
-        try:
-            for _ in range(self.key_samples):
-                status = solver.check()
-                if status == unsat:
-                    break
-                if status != sat:
-                    raise RuntimeError(f"Key sampler returned {status}")
-                model = solver.model()
-                key = {name: _bool_value(model, name) for name in names}
-                keys.append(key)
-                # Exclude this exact key in the TEMPORARY solver scope.
-                solver.add(Or(*[
-                    Bool(name) != BoolVal(key[name]) for name in names
-                ]))
-        finally:
-            solver.pop()
-        return keys
+        return self._enumerate(context.key_solver, names, self.key_samples)
 
-    @staticmethod
-    def _evaluate_outputs(context, dip, key):
-        """Evaluate the known locked netlist without consulting the oracle."""
-        assignments = {**dip, **key}
-        substitutions = [
-            (Bool(name), BoolVal(value))
-            for name, value in assignments.items()
-        ]
-        values = []
-        for name in context.output_names:
-            expr = context.locked_ckt0.outputs()[name]
-            grounded = simplify(substitute(expr, *substitutions))
-            if is_true(grounded):
-                values.append(True)
-            elif is_false(grounded):
-                values.append(False)
-            else:
-                raise ValueError(
-                    f"Output {name} is not ground after assigning inputs/key: "
-                    f"{grounded}"
-                )
-        return tuple(values)
+    def _evaluate_partition_outputs(self, context, dips, keys):
+        """
+        Evaluate the known locked netlist without consulting the oracle.
+        All sampled keys run in parallel as bit lanes; returns, per DIP,
+        one output vector per key.
+        """
+        if self._gate_order is None:
+            self._gate_order = gate_order(context.nodes, context.output_names)
+        mask = (1 << len(keys)) - 1
+        # Sampled keys are named after locked_ckt0's copy; the netlist uses the bare names.
+        packed_keys = {
+            name.removesuffix(CKT0_KEY_SUFFIX): sum(1 << i for i, key in enumerate(keys) if key[name])
+            for name in keys[0]
+        }
+        results = []
+        for dip in dips:
+            inputs = {**{name: mask if value else 0 for name, value in dip.items()}, **packed_keys}
+            packed = evaluate_packed(context.nodes, self._gate_order, context.output_names, inputs, mask)
+            lanes = [packed[name] for name in context.output_names]
+            results.append([tuple(bool(v >> i & 1) for v in lanes) for i in range(len(keys))])
+        return results
 
     def find_dip(self, context):
         start = perf_counter()
@@ -137,8 +152,7 @@ class PartitioningStrategy(DIPStrategy):
         start = perf_counter()
         best_dip = None
         best_score = None
-        for dip in dips:
-            outputs = [self._evaluate_outputs(context, dip, key) for key in keys]
+        for dip, outputs in zip(dips, self._evaluate_partition_outputs(context, dips, keys)):
             score = evaluate_partition(outputs)
             # Entropy first; smallest worst-case class breaks ties.
             priority = (score["entropy"], -score["largest_class"])
