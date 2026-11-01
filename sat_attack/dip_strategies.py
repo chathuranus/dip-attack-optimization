@@ -230,15 +230,12 @@ class MaxSATStrategy(DIPStrategy):
 
 def create_strategy(method, **options):
     strategies = {
-        "standard_sat": lambda: StandardSATStrategy(),
+        "standard_sat": StandardSATStrategy,
         "partitioning": lambda: PartitioningStrategy(
             key_samples=options.get("partition_key_samples", 32),
             dip_candidates=options.get("partition_dip_candidates", 8),
         ),
-        "maxsat": lambda: MaxSATStrategy(
-            timeout_ms=options.get("timeout_ms"),
-            max_extra_checks=options.get("max_extra_checks"),
-        ),
+        "maxsat": MaxSATStrategy,
     }
     if method not in strategies:
         raise ValueError(
