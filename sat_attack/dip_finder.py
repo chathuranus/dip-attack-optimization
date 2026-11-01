@@ -5,19 +5,25 @@ from circuit import Circuit
 from dip_strategies import create_strategy
 
 class DipFinder:
-    def __init__(self, nodes, output_names, method="standard_sat"):
+    def __init__(self, nodes, output_names, method="standard_sat", metrics=None, strategy_options=None):
         self.nodes = nodes
         self.output_names = output_names
+        self.metrics = metrics
 
         self.locked_ckt0 = Circuit.from_nodes(nodes, output_names, key_suffix = "__ckt0")
         self.locked_ckt1 = Circuit.from_nodes(nodes, output_names, key_suffix = "__ckt1")
         self.miter_ckt = Circuit.miter(self.locked_ckt0, self.locked_ckt1)
 
+        # Per-output differences between the two copies. z3 shares these terms
+        # with the miter's diff signal, so they add no new circuitry.
+        self.output_xors = [Xor(self.locked_ckt0.outputs()[name], self.locked_ckt1.outputs()[name])
+                            for name in output_names]
+
         self.solver = Solver()
         self.solver.add(self.miter_ckt.outputs()["diff"] == True)
 
         self.method = method
-        self.strategy = create_strategy(method)
+        self.strategy = create_strategy(method, **(strategy_options or {}))
 
     def can_find_dip(self):
         """Returns if a dip can be found given the current constraints"""
