@@ -59,7 +59,10 @@ class SatAttack:
             if self.metrics is not None:
                 self.metrics.record_oracle(time.perf_counter() - oracle_start)
 
+            update_start = time.perf_counter()
             finder.add_constraint(dip, oracle_output)
+            if self.metrics is not None:
+                self.metrics.record_update(time.perf_counter() - update_start)
             self.iterations += 1
 
         key = finder.find_key(key_inputs)
