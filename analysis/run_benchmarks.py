@@ -135,10 +135,8 @@ def summarise(name, metrics_file, runs):
         for metric in METRICS:
             values = [r[metric] for r in records if r.get(metric) is not None]
             row[f"mean_{metric}"] = sum(values) / len(values) if values else None
-
-            if metric == "oracle_queries":
-                # Sample standard deviation across runs; needs at least two runs.
-                row["std_oracle_queries"] = statistics.stdev(values) if len(values) >= 2 else None
+            # Sample standard deviation across runs; needs at least two runs.
+            row[f"std_{metric}"] = statistics.stdev(values) if len(values) >= 2 else None
 
         rows.append(row)
 
@@ -163,8 +161,7 @@ def main():
     fieldnames = ["benchmark", "method", "runs_requested", "runs_recorded", "runs_successful"]
     for metric in METRICS:
         fieldnames.append(f"mean_{metric}")
-        if metric == "oracle_queries":
-            fieldnames.append("std_oracle_queries")
+        fieldnames.append(f"std_{metric}")
 
     output_dir = args.results_dir / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     json_dir = output_dir / "attack_metrics"
