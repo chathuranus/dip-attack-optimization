@@ -13,6 +13,7 @@
 #   .venv/bin/python analysis/run_benchmarks.py --runs 10                # run i uses z3 seed i
 #   .venv/bin/python analysis/run_benchmarks.py --runs 10 --fixed-seed   # every run uses seed 0
 #   .venv/bin/python analysis/run_benchmarks.py --skip c6288 c2670-RND1280 "*-RND1280"
+#   .venv/bin/python analysis/run_benchmarks.py --runs 10 --resume analysis/results/2026-11-02_09-45-36
 
 import argparse
 import csv
@@ -144,6 +145,34 @@ def summarise(name, metrics_file, runs):
     return rows
 
 
+def load_completed(output_dir):
+    """Returns {variant: [row, ...]} for designs an earlier invocation finished in output_dir.
+
+    A design counts as finished only if it has both rows in its CSV and a copy of its
+    raw metrics, so a design interrupted partway is dropped and run again.
+    """
+    saved_json = {path.stem for path in (output_dir / "attack_metrics").glob("*.json")}
+    completed = {}
+
+    for variant in VARIANTS:
+        output_csv = output_dir / f"benchmark_results_{variant}.csv"
+        rows = []
+        if output_csv.exists():
+            with output_csv.open(newline="") as f:
+                # A row cut short by an interruption is missing its last columns (read as None).
+                rows = [row for row in csv.DictReader(f)
+                        if row["benchmark"] in saved_json and None not in row.values()]
+
+        # Keep a design only if every method has a row, in case the last write was cut off.
+        methods_by_design = {}
+        for row in rows:
+            methods_by_design.setdefault(row["benchmark"], set()).add(row["method"])
+        finished = {name for name, methods in methods_by_design.items() if methods >= set(METHODS)}
+        completed[variant] = [row for row in rows if row["benchmark"] in finished]
+
+    return completed
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run all benchmarks with every attack method.")
     parser.add_argument("--runs", type=int, default=1,
@@ -156,6 +185,8 @@ def main():
         help="run every repeat with z3 seed 0; by default run i uses seed i (0, 1, ..., runs-1)")
     parser.add_argument("--skip", nargs="+", default=[], metavar="PATTERN",
         help="circuits or designs to skip in addition to SKIP, e.g. c6288 c2670-RND1280 '*-RND1280'")
+    parser.add_argument("--resume", type=Path, default=None, metavar="DIR",
+        help="continue an earlier invocation's results folder, running only the designs it has not finished")
     args = parser.parse_args()
 
     designs = find_designs(SKIP + args.skip)
@@ -164,9 +195,29 @@ def main():
         fieldnames.append(f"mean_{metric}")
         fieldnames.append(f"std_{metric}")
 
-    output_dir = args.results_dir / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if args.resume:
+        output_dir = args.resume
+        if not output_dir.is_dir():
+            parser.error(f"--resume folder not found: {output_dir}")
+        completed = load_completed(output_dir)
+    else:
+        output_dir = args.results_dir / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        completed = {variant: [] for variant in VARIANTS}
     json_dir = output_dir / "attack_metrics"
-    json_dir.mkdir(parents=True)
+    json_dir.mkdir(parents=True, exist_ok=bool(args.resume))
+
+    if args.resume:
+        done = {row["benchmark"] for rows in completed.values() for row in rows}
+        if done:
+            tqdm.write(f"Resuming: {len(done)} design(s) already done")
+        for variant in VARIANTS:
+            designs[variant] = [design for design in designs[variant] if design[0] not in done]
+
+        # Averages over different numbers of runs should not end up in the same CSV.
+        previous_runs = {int(row["runs_requested"]) for rows in completed.values() for row in rows}
+        if previous_runs - {args.runs}:
+            tqdm.write(f"Warning: earlier results used --runs {sorted(previous_runs)}, "
+                       f"this invocation uses --runs {args.runs}")
 
     # One bar over every design, so it shows progress through the whole invocation.
     progress = tqdm(total=sum(len(group) for group in designs.values()), desc="Benchmarks", unit="design")
@@ -177,6 +228,8 @@ def main():
         with output_csv.open("w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
+            # Rewrite the finished designs from an earlier invocation, dropping partial rows.
+            writer.writerows(completed[variant])
 
             for name, locked_file, oracle_file in designs[variant]:
                 # Start each design from an empty results file so only these runs are averaged.
@@ -191,11 +244,15 @@ def main():
                         run_attack(locked_file, oracle_file, method, seed, args.timeout)
 
                 writer.writerows(summarise(name, metrics_file, args.runs))
-                # Keep the raw records, since the next invocation deletes them.
-                if metrics_file.exists():
-                    shutil.copy2(metrics_file, json_dir / f"{name}.json")
                 # Write each design as it finishes so partial results survive an interruption.
                 f.flush()
+                # Keep the raw records, since the next invocation deletes them. Copied after
+                # the rows are flushed, as --resume treats this file as the design being done.
+                if metrics_file.exists():
+                    shutil.copy2(metrics_file, json_dir / f"{name}.json")
+                else:
+                    # Every run failed or timed out; still mark the design as done.
+                    (json_dir / f"{name}.json").write_text(json.dumps({"benchmark": name, "results": {}}, indent=2))
                 progress.update()
 
     progress.close()
