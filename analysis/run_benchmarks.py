@@ -10,6 +10,7 @@
 # Usage (from the repo root):
 #   .venv/bin/python analysis/run_benchmarks.py
 #   .venv/bin/python analysis/run_benchmarks.py --runs 10 --timeout 600
+#   .venv/bin/python analysis/run_benchmarks.py --runs 10 --vary-seeds   # run i uses z3 seed i
 
 import argparse
 import csv
@@ -68,11 +69,12 @@ def find_designs():
     return designs
 
 
-def run_attack(locked_file, oracle_file, method, timeout):
+def run_attack(locked_file, oracle_file, method, seed, timeout):
     """Runs one attack. Returns True if run.py exited normally."""
     try:
         result = subprocess.run(
-            [sys.executable, "run.py", str(locked_file), str(oracle_file), "--method", method],
+            [sys.executable, "run.py", str(locked_file), str(oracle_file), "--method", method,
+             "--seed", str(seed)],
             cwd=SAT_ATTACK_DIR,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
@@ -80,11 +82,11 @@ def run_attack(locked_file, oracle_file, method, timeout):
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        tqdm.write(f"  {locked_file.stem} {method}: timed out after {timeout} s")
+        tqdm.write(f"  {locked_file.stem} {method} seed {seed}: timed out after {timeout} s")
         return False
 
     if result.returncode != 0:
-        tqdm.write(f"  {locked_file.stem} {method}: exited with code {result.returncode}")
+        tqdm.write(f"  {locked_file.stem} {method} seed {seed}: exited with code {result.returncode}")
         tqdm.write(result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "")
         return False
 
@@ -131,6 +133,8 @@ def main():
         help="time limit in seconds for a single run (default: no limit)")
     parser.add_argument("--results-dir", type=Path, default=REPO_ROOT / "analysis" / "results",
         help="folder in which each invocation creates a timestamped folder (default: analysis/results)")
+    parser.add_argument("--vary-seeds", action="store_true",
+        help="give run i z3 seed i (0, 1, ..., runs-1); otherwise every run uses seed 0")
     args = parser.parse_args()
 
     designs = find_designs()
@@ -160,9 +164,11 @@ def main():
                 metrics_file.unlink(missing_ok=True)
 
                 for method in METHODS:
+                    # With --vary-seeds every method uses the same seeds 0..runs-1.
                     for run in range(args.runs):
-                        progress.set_postfix_str(f"{name} {method} run {run + 1}/{args.runs}")
-                        run_attack(locked_file, oracle_file, method, args.timeout)
+                        seed = run if args.vary_seeds else 0
+                        progress.set_postfix_str(f"{name} {method} run {run + 1}/{args.runs} seed {seed}")
+                        run_attack(locked_file, oracle_file, method, seed, args.timeout)
 
                 writer.writerows(summarise(name, metrics_file, args.runs))
                 # Keep the raw records, since the next invocation deletes them.
