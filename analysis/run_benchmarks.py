@@ -11,6 +11,7 @@
 #   .venv/bin/python analysis/run_benchmarks.py
 #   .venv/bin/python analysis/run_benchmarks.py --runs 10 --timeout 600
 #   .venv/bin/python analysis/run_benchmarks.py --runs 10 --vary-seeds   # run i uses z3 seed i
+#   .venv/bin/python analysis/run_benchmarks.py --skip c6288 c2670-RND1280 "*-RND1280"
 
 import argparse
 import csv
@@ -20,6 +21,7 @@ import statistics
 import subprocess
 import sys
 from datetime import datetime
+from fnmatch import fnmatch
 from pathlib import Path
 
 from tqdm import tqdm
@@ -30,6 +32,11 @@ BENCHMARKS_DIR = REPO_ROOT / "benchmarks"
 SAT_ATTACK_DIR = REPO_ROOT / "sat_attack"
 
 METHODS = ["standard_sat", "maxsat"] # "partitioning"
+
+# Designs never run. A pattern matches a circuit (c6288 skips all its key
+# sizes) or a full folder name (c2670-RND1280), and may use * and ?.
+# --skip adds more patterns for one invocation.
+SKIP = ["c6288", "c7552"]
 
 # Key-size variants, run and saved separately in this order.
 VARIANTS = ["RND320", "RND640", "RND1280"]
@@ -42,9 +49,15 @@ METRICS = [
 ]
 
 
-def find_designs():
+def is_skipped(folder_name, patterns):
+    circuit = folder_name.split("-")[0]
+    return any(fnmatch(folder_name, pattern) or fnmatch(circuit, pattern) for pattern in patterns)
+
+
+def find_designs(skip_patterns):
     """Returns {variant: [(name, locked_file, oracle_file), ...]}, smallest circuit first."""
     designs = {variant: [] for variant in VARIANTS}
+    skipped = []
 
     # Sort c432 before c1355 by circuit number rather than alphabetically.
     folders = sorted(
@@ -52,6 +65,10 @@ def find_designs():
         key=lambda folder: int(folder.name.split("-")[0].lstrip("c")),
     )
     for folder in folders:
+        if is_skipped(folder.name, skip_patterns):
+            skipped.append(folder.name)
+            continue
+
         variant = folder.name.split("-")[-1]
         if variant not in designs:
             tqdm.write(f"Skipping {folder.name}: unknown variant {variant}")
@@ -65,6 +82,9 @@ def find_designs():
             continue
 
         designs[variant].append((folder.name, locked_file, oracle_files[0]))
+
+    if skipped:
+        tqdm.write(f"Skipping {len(skipped)} design(s): {', '.join(skipped)}")
 
     return designs
 
@@ -135,9 +155,11 @@ def main():
         help="folder in which each invocation creates a timestamped folder (default: analysis/results)")
     parser.add_argument("--vary-seeds", action="store_true",
         help="give run i z3 seed i (0, 1, ..., runs-1); otherwise every run uses seed 0")
+    parser.add_argument("--skip", nargs="+", default=[], metavar="PATTERN",
+        help="circuits or designs to skip in addition to SKIP, e.g. c6288 c2670-RND1280 '*-RND1280'")
     args = parser.parse_args()
 
-    designs = find_designs()
+    designs = find_designs(SKIP + args.skip)
     fieldnames = ["benchmark", "method", "runs_requested", "runs_recorded", "runs_successful"]
     for metric in METRICS:
         fieldnames.append(f"mean_{metric}")
