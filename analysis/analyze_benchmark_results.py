@@ -3,8 +3,8 @@
 
 # Plots the results of one run_benchmarks.py invocation. Reads the raw
 # records in <results_folder>/attack_metrics/ and writes the figures to
-# <results_folder>/plots/. Each figure stacks the RND320, RND640 and RND1280
-# variants vertically.
+# <results_folder>/plots/. Each figure stacks the RND320 and RND640 variants
+# vertically.
 #
 # Usage (from the repo root):
 #   .venv/bin/python analysis/analyze_benchmark_results.py analysis/results/2026-11-02_12-28-22
@@ -19,15 +19,18 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+# Base size for tick labels, axis labels and legends (matplotlib default: 10).
+plt.rcParams["font.size"] = 18
 from matplotlib.patches import Patch
+from matplotlib.ticker import MultipleLocator
 
 
 # Same order as run_benchmarks.py.
-VARIANTS = ["RND320", "RND640", "RND1280"]
+VARIANTS = ["RND320", "RND640"]
 VARIANT_TITLES = {
-    "RND320": "32-bit key (RND320)",
-    "RND640": "64-bit key (RND640)",
-    "RND1280": "128-bit key (RND1280)",
+    "RND320": "32-bit key",
+    "RND640": "64-bit key",
 }
 
 METHOD_LABELS = {
@@ -43,6 +46,15 @@ METHOD_SHORT_LABELS = {
     "partitioning": "Part",
 }
 
+# Bar colour per method in the oracle queries plot. Fixed per method so a
+# method keeps its colour whichever other methods are present.
+METHOD_COLORS = {
+    "standard_sat": "#f1a340",
+    "maxsat": "#998ec3",
+    "maxsat_optimize": "#1baf7a",
+    "partitioning": "#2a78d6",
+}
+
 # Runtime components, bottom to top. Together they add up to
 # io_aware_total_runtime_seconds.
 TIME_COMPONENTS = [
@@ -50,17 +62,17 @@ TIME_COMPONENTS = [
     ("final_dip_check", "Final DIP check"),
     ("oracle", "Oracle evaluation"),
     ("io", "Off-chip I/O (modelled)"),
-    ("other", "Other (parsing, constraint updates, key recovery, verification)"),
+    ("constraint_update", "Update Miter"),
+    ("other", "Other (parsing, key recovery, verification)"),
 ]
 
-# Categorical palette in fixed slot order (blue, orange, aqua, yellow, magenta).
-COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]
+# Categorical palette in fixed slot order (blue, orange, aqua, yellow, green, magenta).
+COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#008300", "#e87ba4"]
 SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
-INK_SECONDARY = "#52514e"
-INK_MUTED = "#898781"
+# Panel title position, as a fraction of the axes width from the y-axis.
+TITLE_X = 0.02
+INK = "#000000"  # all text, axes and error bars
 GRID = "#e1e0d9"
-BASELINE = "#c3c2b7"
 
 
 def load_records(results_dir):
@@ -115,9 +127,13 @@ def time_breakdown(records):
         "final_dip_check": mean([r["final_dip_check_seconds"] for r in records]),
         "oracle": mean([r["oracle_seconds"] for r in records]),
         "io": mean([r["io_aware_oracle_seconds"] for r in records]),
+        "constraint_update": mean([r["constraint_update_seconds"] for r in records]),
     }
     measured = mean([r["total_runtime_seconds"] for r in records])
-    parts["other"] = max(measured - parts["dip_generation"] - parts["final_dip_check"] - parts["oracle"], 0.0)
+    parts["other"] = max(
+        measured - parts["dip_generation"] - parts["final_dip_check"] - parts["oracle"] - parts["constraint_update"],
+        0.0,
+    )
     return parts
 
 
@@ -125,20 +141,22 @@ def style_axes(ax):
     ax.set_facecolor(SURFACE)
     ax.grid(axis="y", color=GRID, linewidth=1)
     ax.set_axisbelow(True)
-    for side in ("top", "right", "left"):
+    for side in ("top", "right"):
         ax.spines[side].set_visible(False)
-    ax.spines["bottom"].set_color(BASELINE)
-    ax.tick_params(colors=INK_SECONDARY, length=0)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(INK)
+        ax.spines[side].set_linewidth(1.2)
+    ax.tick_params(colors=INK, direction="out", length=6, width=1.2)
 
 
 def new_figure(rows):
-    fig, axes = plt.subplots(rows, 1, figsize=(11, 3.6 * rows), facecolor=SURFACE, squeeze=False)
+    fig, axes = plt.subplots(rows, 1, figsize=(11, 4.2 * rows), facecolor=SURFACE, squeeze=False)
     return fig, [row[0] for row in axes]
 
 
 def mark_missing(ax, x, label="no data"):
     """Labels a slot whose runs all timed out or failed, so it is not read as zero."""
-    ax.text(x, 0, label, rotation=90, ha="center", va="bottom", fontsize=7, color=INK_MUTED)
+    ax.text(x, 0, label, rotation=90, ha="center", va="bottom", fontsize=13, color=INK)
 
 
 def plot_oracle_queries(data, methods, circuits, output_path):
@@ -156,20 +174,20 @@ def plot_oracle_queries(data, methods, circuits, output_path):
                     mark_missing(ax, position)
                     continue
                 std = statistics.stdev(values) if len(values) >= 2 else None
-                ax.bar(position, mean(values), width * 0.9, color=COLORS[i],
-                       yerr=std, error_kw={"ecolor": INK_SECONDARY, "elinewidth": 1, "capsize": 2})
+                ax.bar(position, mean(values), width * 0.9, color=METHOD_COLORS[method],
+                       yerr=std, error_kw={"ecolor": INK, "elinewidth": 1, "capsize": 2})
 
-        ax.set_title(VARIANT_TITLES[variant], loc="left", color=INK, fontsize=11)
+        ax.set_title(VARIANT_TITLES[variant], loc="left", x=TITLE_X, color=INK, fontsize=21)
         ax.set_xticks(range(len(circuits)), circuits)
-        ax.set_ylabel("Oracle queries (mean)", color=INK_SECONDARY)
+        if variant == "RND640":
+            ax.yaxis.set_major_locator(MultipleLocator(20))
 
-    axes[-1].set_xlabel("ISCAS-85 benchmark circuit", color=INK_SECONDARY)
-    handles = [Patch(color=COLORS[i], label=METHOD_LABELS[m]) for i, m in enumerate(methods)]
+    axes[-1].set_xlabel("ISCAS-85 benchmark circuits", color=INK)
+    fig.supylabel("# Oracle queries (mean)", color=INK)
+    handles = [Patch(color=METHOD_COLORS[m], label=METHOD_LABELS[m]) for m in methods]
     fig.legend(handles=handles, loc="upper center", ncol=len(methods), frameon=False,
-               bbox_to_anchor=(0.5, 1.0), labelcolor=INK_SECONDARY)
-    fig.suptitle("Oracle queries per attack (error bars: standard deviation across runs)",
-                 x=0.01, ha="left", y=1.03, color=INK, fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
+               bbox_to_anchor=(0.5, 1.0), labelcolor=INK)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
 
@@ -201,22 +219,20 @@ def plot_runtime_breakdown(data, methods, circuits, output_path):
                     bottom += parts[key]
 
         # Method under each bar, circuit name centred below its group.
-        ax.set_xticks(method_ticks, method_labels, minor=True, fontsize=7)
+        ax.set_xticks(method_ticks, method_labels, minor=True, fontsize=13)
         ax.set_xticks(range(len(circuits)), circuits)
-        ax.tick_params(axis="x", which="major", pad=14)
-        ax.tick_params(axis="x", which="minor", colors=INK_MUTED, length=0)
+        # No x tick marks here: one at the group centre would sit between the Std and Max labels.
+        ax.tick_params(axis="x", which="major", pad=26, length=0)
+        ax.tick_params(axis="x", which="minor", colors=INK, length=0)
 
-        ax.set_title(VARIANT_TITLES[variant], loc="left", color=INK, fontsize=11)
-        ax.set_ylabel("I/O-aware runtime (s, mean)", color=INK_SECONDARY)
+        ax.set_title(VARIANT_TITLES[variant], loc="left", x=TITLE_X, color=INK, fontsize=21)
 
-    axes[-1].set_xlabel("ISCAS-85 benchmark circuit", color=INK_SECONDARY)
+    axes[-1].set_xlabel("ISCAS-85 benchmark circuits", color=INK)
+    fig.supylabel("I/O-aware runtime (s, mean)", color=INK)
     handles = [Patch(color=color, label=label) for (_, label), color in zip(TIME_COMPONENTS, COLORS)]
-    fig.legend(handles=handles, loc="upper center", ncol=3, frameon=False,
-               bbox_to_anchor=(0.5, 1.0), labelcolor=INK_SECONDARY)
-    method_key = ",  ".join(f"{METHOD_SHORT_LABELS[m]} = {METHOD_LABELS[m]}" for m in methods)
-    fig.suptitle(f"Runtime breakdown per attack ({method_key})",
-                 x=0.01, ha="left", y=1.04, color=INK, fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.legend(handles=handles, loc="upper center", ncol=2, frameon=False,
+               bbox_to_anchor=(0.5, 1.0), labelcolor=INK)
+    fig.tight_layout(rect=(0, 0, 1, 0.86))
     fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor=SURFACE)
     plt.close(fig)
 
