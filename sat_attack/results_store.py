@@ -15,6 +15,7 @@ VALID_METHODS = {
     "standard_sat",
     "partitioning",
     "maxsat",
+    "maxsat_optimize",
 }
 
 
@@ -86,6 +87,7 @@ def save_attack_result(
                     "standard_sat": [],
                     "partitioning": [],
                     "maxsat": [],
+                    "maxsat_optimize": [],
                 },
             }
 

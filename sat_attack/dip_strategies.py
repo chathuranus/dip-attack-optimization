@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from z3 import AtLeast, is_true, sat, unsat
+from z3 import AtLeast, Optimize, Solver, is_true, sat, unsat
 
 import sat_model
 
@@ -17,6 +17,10 @@ def hamming_distance(model, output_xors):
 
 
 class DIPStrategy(ABC):
+
+    def create_solver(self, context):
+        """Returns the solver the attack uses to find DIPs"""
+        return Solver()
 
     @abstractmethod
     def find_dip(self, context):
@@ -112,12 +116,38 @@ class MaxSATStrategy(DIPStrategy):
         return sat_model.extract_from_model(best, primary_inputs, completion=True)
 
 
+class OptimizeMaxSATStrategy(DIPStrategy):
+    """
+    Selects the DIP that maximizes the output Hamming distance using z3's
+    built-in MaxSAT. Each output difference is a soft constraint, so every
+    check in can_find_dip already returns a DIP with the largest distance.
+    z3's internal solver calls are not visible, so each DIP counts as one SAT iteration.
+    """
+
+    def create_solver(self, context):
+        solver = Optimize()
+        for output_xor in context.output_xors:
+            solver.add_soft(output_xor)
+        return solver
+
+    def find_dip(self, context):
+        """Returns the optimal dip found by the last check"""
+        model = context.solver.model()
+
+        if context.metrics is not None:
+            context.metrics.record_hamming(hamming_distance(model, context.output_xors), optimal=True)
+
+        primary_inputs = context.miter_ckt.primary_inputs()
+        return sat_model.extract_from_model(model, primary_inputs, completion=True)
+
+
 def create_strategy(method, **options):
 
     strategies = {
         "standard_sat": StandardSATStrategy,
         "partitioning": PartitioningStrategy,
         "maxsat": MaxSATStrategy,
+        "maxsat_optimize": OptimizeMaxSATStrategy,
     }
 
     if method not in strategies:

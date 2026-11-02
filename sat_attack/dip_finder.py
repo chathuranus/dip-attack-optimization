@@ -19,11 +19,11 @@ class DipFinder:
         self.output_xors = [Xor(self.locked_ckt0.outputs()[name], self.locked_ckt1.outputs()[name])
                             for name in output_names]
 
-        self.solver = Solver()
-        self.solver.add(self.miter_ckt.outputs()["diff"] == True)
-
         self.method = method
         self.strategy = create_strategy(method, **(strategy_options or {}))
+
+        self.solver = self.strategy.create_solver(self)
+        self.solver.add(self.miter_ckt.outputs()["diff"] == True)
 
     def can_find_dip(self):
         """Returns if a dip can be found given the current constraints"""

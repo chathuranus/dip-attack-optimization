@@ -1,5 +1,8 @@
 import argparse
 from pathlib import Path
+
+import z3
+
 from attack_metrics import AttackMetrics
 from results_store import save_attack_result
 
@@ -13,7 +16,8 @@ if __name__ == "__main__":
         choices=[
             "standard_sat",
             "partitioning",
-            "maxsat"
+            "maxsat",
+            "maxsat_optimize"
         ],
         default="standard_sat",
         help="DIP selection strategy"
@@ -26,7 +30,15 @@ if __name__ == "__main__":
         help="maxsat only: cap on extra solver checks per DIP (default: no limit)"
     )
 
+    parser.add_argument("--seed", type=int, default=0,
+        help="random seed for the z3 solvers (default: 0, z3's own default)"
+    )
+
     args = parser.parse_args()
+
+    # Global defaults, so every Solver() created during the attack uses this seed.
+    z3.set_param("smt.random_seed", args.seed)
+    z3.set_param("sat.random_seed", args.seed)
 
     attack_method = args.method
     locked_file = Path(args.locked_ckt)
@@ -63,6 +75,7 @@ if __name__ == "__main__":
         metrics=metrics,
         status="success" if verified_success else "failed",
         functional_equivalence=verified_success,
+        solver_seed=args.seed,
     )
 
     print(f"Benchmark: {locked_file.stem}")
