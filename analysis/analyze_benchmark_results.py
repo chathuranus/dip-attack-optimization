@@ -19,6 +19,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 
 # Base size for tick labels, axis labels and legends (matplotlib default: 10).
 plt.rcParams["font.size"] = 18
@@ -196,13 +197,17 @@ def plot_oracle_queries(data, methods, circuits, output_path):
 
 
 def draw_runtime_bars(ax, data, variant, methods, circuits):
-    """Draws the stacked runtime bars of one variant. Returns (x position, height) per bar."""
+    """
+    Draws the stacked runtime bars of one variant. Returns (x position, height,
+    standard deviation of the total across runs, or None for a single run) per bar.
+    """
     width = 0.8 / len(methods)
     bars = []
     for i, method in enumerate(methods):
         for x, circuit in enumerate(circuits):
             position = x - 0.4 + width * (i + 0.5)
-            parts = time_breakdown(data[variant].get(circuit, {}).get(method, []))
+            records = data[variant].get(circuit, {}).get(method, [])
+            parts = time_breakdown(records)
             if parts is None:
                 mark_missing(ax, position)
                 continue
@@ -213,8 +218,25 @@ def draw_runtime_bars(ax, data, variant, methods, circuits):
                 ax.bar(position, parts[key], width * 0.9, bottom=bottom, color=color,
                        edgecolor=SURFACE, linewidth=0.8)
                 bottom += parts[key]
-            bars.append((position, bottom))
+            totals = [r["io_aware_total_runtime_seconds"] for r in records]
+            std = statistics.stdev(totals) if len(totals) >= 2 else None
+            bars.append((position, bottom, std))
     return bars
+
+
+def draw_total_error_bars(ax, bars, cap=None):
+    """
+    Standard deviation of the total runtime across runs, on top of each bar.
+    Skipped for bars cut off by the y-axis cap, whose top is not shown.
+    """
+    for position, total, std in bars:
+        if std is None or (cap is not None and total > cap):
+            continue
+        container = ax.errorbar(position, total, yerr=std, fmt="none", ecolor=INK,
+                                elinewidth=1.2, capsize=3, capthick=1.2, zorder=4)
+        # A light outline keeps the black bar visible over the dark segments.
+        for artist in container.get_children():
+            artist.set_path_effects([patheffects.withStroke(linewidth=3, foreground=SURFACE)])
 
 
 def set_runtime_xticks(ax, methods, circuits):
@@ -238,7 +260,7 @@ def apply_axis_cap(ax, cap, bars, bar_width):
     ax.yaxis.set_major_locator(MultipleLocator(2))
     cut_bottom, cut_height, slant = cap * 0.86, cap * 0.035, cap * 0.05
     half = bar_width / 2 + 0.02
-    for position, total in bars:
+    for position, total, _ in bars:
         if total <= cap:
             continue
         # A surface-coloured slanted band across the bar marks where it is cut.
@@ -258,8 +280,10 @@ def plot_runtime_breakdown(data, methods, circuits, output_path):
         bars = draw_runtime_bars(ax, data, variant, methods, circuits)
         set_runtime_xticks(ax, methods, circuits)
         ax.set_title(VARIANT_TITLES[variant], loc="left", x=TITLE_X, color=INK, fontsize=21)
-        if variant in RUNTIME_Y_CAPS:
-            apply_axis_cap(ax, RUNTIME_Y_CAPS[variant], bars, bar_width=0.8 / len(methods) * 0.9)
+        cap = RUNTIME_Y_CAPS.get(variant)
+        if cap is not None:
+            apply_axis_cap(ax, cap, bars, bar_width=0.8 / len(methods) * 0.9)
+        draw_total_error_bars(ax, bars, cap)
 
     axes[-1].set_xlabel("ISCAS-85 benchmark circuits", color=INK)
     fig.supylabel("Runtime (seconds)", color=INK)
