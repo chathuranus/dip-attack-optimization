@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "benchmark": "c499-RND320",
+  "results": {
+    "standard_sat": [
+      {
+        "run_id": "494f7983-76aa-4db1-b596-90287e25578f",
+        "timestamp_utc": "2026-11-02T15:35:57.574250+00:00",
+        "status": "success",
+        "oracle_queries": 12,
+        "sat_iterations": 12,
+        "total_runtime_seconds": 0.5119974045082927,
+        "io_aware_total_runtime_seconds": 0.5360393935707927,
+        "dip_generation_seconds": 0.07829865720123053,
+        "final_dip_check_seconds": 0.0033800695091485977,
+        "oracle_seconds": 0.0604805639013648,
+        "io_aware_oracle_seconds": 0.0240419890625,
+        "constraint_update_seconds": 0.21637136675417423,
+        "hamming_distances": [
+          15,
+          3,
+          1,
+          1,
+          4,
+          2,
+          2,
+          1,
+          1,
+          2,
+          3,
+          1
+        ],
+        "optimal_iterations": 0,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ],
+    "partitioning": [],
+    "maxsat": [
+      {
+        "run_id": "6c92c50d-8e9d-47d3-a942-22abacdd2b5e",
+        "timestamp_utc": "2026-11-02T15:35:58.381588+00:00",
+        "status": "success",
+        "oracle_queries": 10,
+        "sat_iterations": 44,
+        "total_runtime_seconds": 0.6883817221969366,
+        "io_aware_total_runtime_seconds": 0.7084167130823533,
+        "dip_generation_seconds": 0.30306732654571533,
+        "final_dip_check_seconds": 0.0027370359748601913,
+        "oracle_seconds": 0.050790936686098576,
+        "io_aware_oracle_seconds": 0.020034990885416666,
+        "constraint_update_seconds": 0.17903561051934958,
+        "hamming_distances": [
+          21,
+          16,
+          13,
+          9,
+          5,
+          4,
+          4,
+          3,
+          2,
+          1
+        ],
+        "optimal_iterations": 10,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ]
+  }
+}

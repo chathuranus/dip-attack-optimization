@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "benchmark": "c880-RND320",
+  "results": {
+    "standard_sat": [
+      {
+        "run_id": "ef9c6a8e-7425-481b-90cf-ff465ae1042d",
+        "timestamp_utc": "2026-11-02T15:35:59.054508+00:00",
+        "status": "success",
+        "oracle_queries": 6,
+        "sat_iterations": 6,
+        "total_runtime_seconds": 0.5600689761340618,
+        "io_aware_total_runtime_seconds": 0.5720927171496868,
+        "dip_generation_seconds": 0.03947068750858307,
+        "final_dip_check_seconds": 0.007852406240999699,
+        "oracle_seconds": 0.03181661944836378,
+        "io_aware_oracle_seconds": 0.012023741015625,
+        "constraint_update_seconds": 0.2296088756993413,
+        "hamming_distances": [
+          10,
+          1,
+          2,
+          1,
+          1,
+          1
+        ],
+        "optimal_iterations": 0,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ],
+    "partitioning": [],
+    "maxsat": [
+      {
+        "run_id": "b5bdad8a-80d0-4b4f-a6db-8f0785a22be3",
+        "timestamp_utc": "2026-11-02T15:35:59.682307+00:00",
+        "status": "success",
+        "oracle_queries": 4,
+        "sat_iterations": 22,
+        "total_runtime_seconds": 0.5239071939140558,
+        "io_aware_total_runtime_seconds": 0.5319230212578058,
+        "dip_generation_seconds": 0.09037132654339075,
+        "final_dip_check_seconds": 0.007144262082874775,
+        "oracle_seconds": 0.021273463033139706,
+        "io_aware_oracle_seconds": 0.00801582734375,
+        "constraint_update_seconds": 0.15195938386023045,
+        "hamming_distances": [
+          11,
+          10,
+          10,
+          9
+        ],
+        "optimal_iterations": 4,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ]
+  }
+}

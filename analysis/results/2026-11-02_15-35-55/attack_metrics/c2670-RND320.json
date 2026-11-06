@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "benchmark": "c2670-RND320",
+  "results": {
+    "standard_sat": [
+      {
+        "run_id": "0efdd9c9-2092-49c3-8e1b-a8a2799409bf",
+        "timestamp_utc": "2026-11-02T15:36:11.479807+00:00",
+        "status": "success",
+        "oracle_queries": 23,
+        "sat_iterations": 23,
+        "total_runtime_seconds": 3.6089183166623116,
+        "io_aware_total_runtime_seconds": 3.6551223697873114,
+        "dip_generation_seconds": 0.22017079032957554,
+        "final_dip_check_seconds": 0.007213500328361988,
+        "oracle_seconds": 0.29620058834552765,
+        "io_aware_oracle_seconds": 0.04620405312499999,
+        "constraint_update_seconds": 2.319552649743855,
+        "hamming_distances": [
+          12,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          1,
+          1,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          1,
+          2
+        ],
+        "optimal_iterations": 0,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ],
+    "partitioning": [],
+    "maxsat": [
+      {
+        "run_id": "0b61a219-3f63-443f-b005-9b43583d8f43",
+        "timestamp_utc": "2026-11-02T15:36:13.659646+00:00",
+        "status": "success",
+        "oracle_queries": 11,
+        "sat_iterations": 40,
+        "total_runtime_seconds": 2.1079624611884356,
+        "io_aware_total_runtime_seconds": 2.1300600518134356,
+        "dip_generation_seconds": 0.2405119901522994,
+        "final_dip_check_seconds": 0.014011125080287457,
+        "oracle_seconds": 0.13502024114131927,
+        "io_aware_oracle_seconds": 0.022097590624999996,
+        "constraint_update_seconds": 1.070253905840218,
+        "hamming_distances": [
+          22,
+          8,
+          6,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "optimal_iterations": 11,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ]
+  }
+}

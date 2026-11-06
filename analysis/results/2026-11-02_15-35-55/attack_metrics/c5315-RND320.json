@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "benchmark": "c5315-RND320",
+  "results": {
+    "standard_sat": [
+      {
+        "run_id": "81ef345a-eabc-4e5f-ad68-539ad9423888",
+        "timestamp_utc": "2026-11-02T15:36:24.731892+00:00",
+        "status": "success",
+        "oracle_queries": 12,
+        "sat_iterations": 12,
+        "total_runtime_seconds": 4.665010929107666,
+        "io_aware_total_runtime_seconds": 4.6891523212951665,
+        "dip_generation_seconds": 0.21263298764824867,
+        "final_dip_check_seconds": 0.00855884701013565,
+        "oracle_seconds": 0.25889092590659857,
+        "io_aware_oracle_seconds": 0.024141392187500003,
+        "constraint_update_seconds": 2.8055223021656275,
+        "hamming_distances": [
+          17,
+          2,
+          2,
+          1,
+          2,
+          1,
+          1,
+          1,
+          2,
+          1,
+          3,
+          1
+        ],
+        "optimal_iterations": 0,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ],
+    "partitioning": [],
+    "maxsat": [
+      {
+        "run_id": "64570964-ce6c-4fe2-a619-fb99470631ff",
+        "timestamp_utc": "2026-11-02T15:36:28.949247+00:00",
+        "status": "success",
+        "oracle_queries": 6,
+        "sat_iterations": 77,
+        "total_runtime_seconds": 4.11944967135787,
+        "io_aware_total_runtime_seconds": 4.13152036745162,
+        "dip_generation_seconds": 1.1476550661027431,
+        "final_dip_check_seconds": 0.07312861829996109,
+        "oracle_seconds": 0.13297127280384302,
+        "io_aware_oracle_seconds": 0.012070696093750001,
+        "constraint_update_seconds": 1.4120906135067344,
+        "hamming_distances": [
+          68,
+          27,
+          12,
+          6,
+          5,
+          5
+        ],
+        "optimal_iterations": 6,
+        "partition_selections": [],
+        "functional_equivalence": true,
+        "solver_seed": 0,
+        "error": null
+      }
+    ]
+  }
+}
