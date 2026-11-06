@@ -25,9 +25,12 @@ from matplotlib.ticker import FuncFormatter, NullFormatter
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import analyze_benchmark_results as abr
 from analyze_benchmark_results import (
-    GRID, INK, INK_MUTED, INK_SECONDARY, METHOD_COLORS, METHOD_LABELS, SURFACE,
+    GRID, INK, METHOD_COLORS, METHOD_LABELS, SURFACE,
     VARIANT_TITLES, VARIANTS, load_records, mean, style_axes,
 )
+
+# The theme draws all text in INK.
+INK_MUTED = INK_SECONDARY = INK
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sat_attack"))
 from io_model import T_RT
@@ -415,9 +418,9 @@ def main():
     plot_query_ratio(data, methods, out / "G2_query_ratio.png")
     abr.plot_runtime_breakdown(data, methods, circuits, out / "G3_runtime_breakdown.png")
     print("  G3_runtime_breakdown.png")
-    # Baseline vs partitioning only, on the key sizes where both finish quickly.
+    # Baseline vs partitioning only.
     abr.plot_runtime_breakdown(data, [BASELINE_METHOD, "partitioning"], circuits,
-                               out / "G3b_runtime_breakdown_std_vs_part.png", variants=["RND320", "RND640"])
+                               out / "G3b_runtime_breakdown_std_vs_part.png")
     print("  G3b_runtime_breakdown_std_vs_part.png")
     plot_checks_vs_queries(data, methods, out / "G4_checks_vs_queries.png")
     plot_hamming(data, methods, out / "G5_hamming_distance.png")
