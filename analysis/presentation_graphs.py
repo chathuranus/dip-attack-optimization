@@ -415,6 +415,10 @@ def main():
     plot_query_ratio(data, methods, out / "G2_query_ratio.png")
     abr.plot_runtime_breakdown(data, methods, circuits, out / "G3_runtime_breakdown.png")
     print("  G3_runtime_breakdown.png")
+    # Baseline vs partitioning only, on the key sizes where both finish quickly.
+    abr.plot_runtime_breakdown(data, [BASELINE_METHOD, "partitioning"], circuits,
+                               out / "G3b_runtime_breakdown_std_vs_part.png", variants=["RND320", "RND640"])
+    print("  G3b_runtime_breakdown_std_vs_part.png")
     plot_checks_vs_queries(data, methods, out / "G4_checks_vs_queries.png")
     plot_hamming(data, methods, out / "G5_hamming_distance.png")
     plot_latency_sensitivity(data, methods, out / "G6_latency_sensitivity.png")
